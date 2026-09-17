@@ -125,8 +125,21 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 /* ---- results ---- */
 .result-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-.pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
-  background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 2px 8px 2px 4px;
+  border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; vertical-align: middle; }
+/* Provider icon inside a pill: 14px, 18px in the Admin card headers. */
+.p-icon { width: 14px; height: 14px; flex: none; border-radius: 3px; object-fit: contain; }
+img.p-icon { background: #fff; padding: 1px; }
+.p-mono { display: inline-grid; place-items: center; font-size: 9px; font-weight: 800; line-height: 1;
+  color: #fff; background: #6366f1; }
+.p-mono.bedrock { background: #d97706; }
+.p-mono.nvidia { background: #65a30d; }
+.p-mono.gemini { background: #2563eb; }
+.p-mono.openai { background: #0f766e; }
+.p-mono.anthropic { background: #c2410c; }
+.provider-card h3 .pill { font-size: 12.5px; padding: 3px 10px 3px 4px; gap: 6px; }
+.provider-card h3 .p-icon { width: 18px; height: 18px; border-radius: 4px; }
+.provider-card h3 .p-mono { font-size: 11px; }
 .pill.bedrock { background: #fff1e0; color: #b45309; }
 .pill.nvidia { background: #eaf7d9; color: #4d7c0f; }
 .pill.gemini { background: #e3eeff; color: #1d4ed8; }

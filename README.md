@@ -94,6 +94,10 @@ Token counts are normalized. For Gemini, thinking tokens are added to the output
 - ⚡ marks the fastest model and ↓ marks the one with the fewest total tokens.
 - A failing model (bad key, rate limit, retired model) shows its error and doesn't stop the others.
 
+### Provider icons
+
+Each provider pill shows a small icon in Compare all, Single model and Admin. To use official logos, put the files in `app/static/logos/`, named `bedrock`, `nvidia`, `gemini`, `openai` and `anthropic` (`.svg`, `.png`, `.webp`, `.jpg` or `.ico`), then reload the page. Without a file, a small lettered badge is shown instead.
+
 ### Anthropic keys and workspaces
 
 Some Anthropic API keys aren't scoped to a single workspace, for example organization-level or personal keys. With those keys, every request fails with *"This API key is not scoped to a workspace … must include the anthropic-workspace-id header"*. To fix it, open **Admin → Anthropic → Workspace ID** and enter the workspace ID (`wrkspc_…`, **not** the word "Organization"). You'll find it in the ID column of Claude Console → Settings → Workspaces. If your organization only has the Default Workspace and no ID is shown for it, create a workspace there and use that workspace's ID. Admin rejects values that don't start with `wrkspc_`. The app then sends it as the `anthropic-workspace-id` header. Keys created inside a workspace don't need this.
@@ -106,6 +110,7 @@ app/
   providers.py   Provider gateway (Bedrock, NVIDIA, Gemini, OpenAI, Anthropic)
   config.py      Provider registry + .env read/write
   static/        index.html, app.js, diff.js, style.css (no build step)
+  static/logos/  optional provider logo files (see its README)
 docs/            base44-prompt.md, screenshots/
 tests/           Offline tests: every SDK is faked
 ```

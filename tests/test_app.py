@@ -293,6 +293,16 @@ def test_index_and_models(client):
     assert data["defaults"]["max_tokens"] == 2000
 
 
+def test_logo_urls(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "LOGO_DIR", tmp_path)
+    by = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by["gemini"]["logo"] is None
+    (tmp_path / "gemini.png").write_bytes(b"\x89PNG")
+    by = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by["gemini"]["logo"].startswith("/static/logos/gemini.png?v=")
+    assert by["openai"]["logo"] is None
+
+
 def test_generate_ok_and_errors(client, monkeypatch):
     body = {"provider": "gemini", "model": "gemini-flash-lite", "user": "hello"}
     r = client.post("/api/generate", json=body).json()
