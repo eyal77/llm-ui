@@ -29,7 +29,20 @@ SESSION_TTL_SECONDS = 8 * 3600
 app = FastAPI(title="LLM Compare")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+LOGO_DIR = STATIC_DIR / "logos"
+LOGO_EXTENSIONS = (".svg", ".png", ".webp", ".jpg", ".jpeg", ".ico")
+
 _sessions: dict[str, float] = {}  # admin token -> expiry (in memory: a restart logs you out)
+
+
+def logo_url(provider: str) -> str | None:
+    """URL of app/static/logos/<provider>.<ext> if you've added one (the UI falls back to a badge)."""
+    for ext in LOGO_EXTENSIONS:
+        path = LOGO_DIR / f"{provider}{ext}"
+        if path.is_file():
+            # The mtime query string makes the browser pick up a replaced file.
+            return f"/static/logos/{path.name}?v={int(path.stat().st_mtime)}"
+    return None
 
 
 @app.get("/", include_in_schema=False)
@@ -51,6 +64,7 @@ def list_models():
             {
                 "provider": spec.id,
                 "label": spec.label,
+                "logo": logo_url(spec.id),
                 "configured": configured,
                 "supports": spec.supports,
                 "notes": spec.notes,
@@ -201,6 +215,7 @@ def admin_get_config(_: str = Depends(require_admin)):
             {
                 "provider": spec.id,
                 "label": spec.label,
+                "logo": logo_url(spec.id),
                 "configured": config.is_configured(spec, env),
                 "models": config.provider_models(spec, env),
                 "notes": spec.notes,

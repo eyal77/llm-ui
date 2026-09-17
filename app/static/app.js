@@ -81,6 +81,16 @@
   const allModels = () => configured().flatMap((p) => p.models.map((m) => ({ ...m, provider: p.provider, label: p.label })));
   const providerOf = (id) => state.providers.find((p) => p.provider === id);
 
+  // Small provider icon: the logo file from app/static/logos/ if present, else a lettered badge.
+  const MONOGRAM = { bedrock: "B", nvidia: "N", gemini: "G", openai: "O", anthropic: "A" };
+  function providerIcon(provider, logo) {
+    logo = logo ?? providerOf(provider)?.logo;
+    if (logo) return `<img class="p-icon" src="${esc(logo)}" alt="" aria-hidden="true">`;
+    return `<span class="p-icon p-mono ${esc(provider)}" aria-hidden="true">${esc(MONOGRAM[provider] || (provider || "?")[0].toUpperCase())}</span>`;
+  }
+  const pill = (provider, label, logo) =>
+    `<span class="pill ${esc(provider)}">${providerIcon(provider, logo)}${esc(label)}</span>`;
+
   async function loadModels() {
     const data = await api("/api/models");
     state.providers = data.providers;
@@ -119,7 +129,7 @@
     box.innerHTML = models.length
       ? models.map((m) => `
           <label class="check"><input type="checkbox" value="${esc(m.id)}" ${firstRender || checked.has(m.id) || !known.has(m.id) ? "checked" : ""}>
-            <span class="pill ${esc(m.provider)}">${esc(m.label)}</span><span class="mono">${esc(m.model)}</span></label>`).join("")
+            ${pill(m.provider, m.label)}<span class="mono">${esc(m.model)}</span></label>`).join("")
       : `<p class="hint">No configured models.</p>`;
     const skipped = state.providers.filter((p) => !p.configured).map((p) => p.label);
     if (skipped.length) box.insertAdjacentHTML("beforeend", `<p class="hint">Skipped (no credentials): ${esc(skipped.join(", "))}</p>`);
@@ -226,7 +236,7 @@
     if (!id) { toast("No model selected — add credentials in Admin", "error"); return; }
     const m = allModels().find((x) => x.id === id);
     root.innerHTML = `<div class="panel result-card loading">
-      <div class="result-head"><span class="pill ${esc(m.provider)}">${esc(m.label)}</span><span class="mono">${esc(m.model)}</span></div>
+      <div class="result-head">${pill(m.provider, m.label)}<span class="mono">${esc(m.model)}</span></div>
       <div class="spinner-row"><span class="spinner"></span> Waiting for the model…</div></div>`;
     let r;
     try { r = await callModel(id, params); }
@@ -251,7 +261,7 @@
   }
 
   function singleHtml(r, m) {
-    const head = `<div class="result-head"><span class="pill ${esc(m.provider)}">${esc(m.label)}</span>
+    const head = `<div class="result-head">${pill(m.provider, m.label)}
       <span class="mono">${esc(m.model)}</span>${statusChip(r)}</div>`;
     if (!r.ok) {
       return `<div class="panel result-card">${head}
@@ -321,7 +331,7 @@
       const simCell = row.id === state.baseline ? `<span class="muted">baseline</span>`
         : sim == null ? "—" : `<div class="bar-cell"><span>${Math.round(sim * 100)}%</span><i style="width:${Math.round(sim * 100)}%" class="bar sim"></i></div>`;
       return `<tr data-card="card-${i}" class="${row.id === state.baseline ? "is-baseline" : ""}">
-        <td><span class="pill ${esc(row.provider)}">${esc(row.label)}</span><div class="mono small">${esc(row.model)}</div></td>
+        <td>${pill(row.provider, row.label)}<div class="mono small">${esc(row.model)}</div></td>
         <td>${statusChip(r)}</td>
         <td class="num">${r ? `<div class="bar-cell"><span>${fmtMs(r.latency_ms)}${r.latency_ms === fastest ? " ⚡" : ""}</span><i class="bar lat" style="width:${Math.round(100 * (r.latency_ms || 0) / maxLat)}%"></i></div>` : ""}</td>
         <td class="num">${r?.ok ? fmt(r.input_tokens) : ""}</td>
@@ -346,7 +356,7 @@
       } else body = `<div class="response">${esc(r.text)}</div>`;
       const meta = r?.ok ? `${fmt(r.input_tokens)} in · ${fmt(r.output_tokens)} out · ${fmtMs(r.latency_ms)}` : r ? fmtMs(r.latency_ms) : "";
       return `<article class="panel compare-card ${row.id === state.baseline ? "is-baseline" : ""}" id="card-${i}">
-        <div class="result-head"><span class="pill ${esc(row.provider)}">${esc(row.label)}</span>
+        <div class="result-head">${pill(row.provider, row.label)}
           <span class="mono">${esc(row.model)}</span>${statusChip(r)}
           ${row.id === state.baseline ? `<span class="chip base">baseline</span>` : ""}</div>
         <div class="muted small">${meta}</div>
@@ -529,7 +539,7 @@
         ${cfg.providers.map((p) => `
           <form class="panel provider-card" data-provider="${esc(p.provider)}">
             <div class="row-between">
-              <h3><span class="pill ${esc(p.provider)}">${esc(p.label)}</span></h3>
+              <h3>${pill(p.provider, p.label, p.logo)}</h3>
               <span class="chip ${p.configured ? "ok" : "off"}">${p.configured ? "configured" : "not configured"}</span>
             </div>
             ${p.fields.map((f) => fieldHtml(p, f)).join("")}
