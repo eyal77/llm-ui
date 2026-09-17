@@ -276,7 +276,7 @@
         <div class="metric"><span>Latency</span><b>${fmtMs(r.latency_ms)}</b></div>
       </div>
       ${r.warning ? `<div class="warn-box">${esc(r.warning)}</div>` : ""}
-      <div class="response-head"><span class="field-label">Response</span>
+      <div class="response-head"><span class="field-label">Answer</span>
         <span class="muted">${fmt(wordCount(r.text))} words · ${fmt((r.text || "").length)} chars</span>
         <button type="button" class="ghost copy-btn">Copy</button></div>
       <div class="response">${esc(r.text || "")}</div>
