@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Compare</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><path d='M8 10h7v12H8zM17 6h7v16h-7z' fill='white'/></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true"></span>LLM Compare</div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="single" role="tab">Single model</button>
+    <button class="tab" data-view="compare" role="tab">Compare all</button>
+    <button class="tab" data-view="admin" role="tab">Admin</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Run view: shared by "Single model" and "Compare all" so the request carries over -->
+  <section id="view-run" class="run-layout">
+    <form id="request-form" class="panel request-panel" autocomplete="off">
+      <div id="no-providers" class="notice hidden">
+        No provider has credentials yet. Open <a href="#" data-goto="admin">Admin</a> to add them.
+      </div>
+
+      <div class="mode-single">
+        <label class="field-label" for="model">Model</label>
+        <select id="model"></select>
+        <p id="model-notes" class="hint"></p>
+      </div>
+
+      <div class="mode-compare hidden">
+        <div class="row-between">
+          <span class="field-label">Models <span id="compare-count" class="muted"></span></span>
+          <span class="link-group"><a href="#" id="select-all">All</a> · <a href="#" id="select-none">None</a></span>
+        </div>
+        <div id="compare-models" class="checklist"></div>
+      </div>
+
+      <label class="field-label" for="system">System message</label>
+      <textarea id="system" rows="3" placeholder="You are a helpful assistant…"></textarea>
+
+      <label class="field-label" for="user">User message</label>
+      <textarea id="user" rows="7" placeholder="Ask something…" required></textarea>
+
+      <div class="row-between params-head">
+        <span class="field-label">Parameters</span>
+        <a href="#" id="reset-params">Reset to defaults</a>
+      </div>
+      <div class="params">
+        <div class="param">
+          <label><input type="checkbox" id="use_temperature"> temperature</label>
+          <input type="range" id="temperature_range" min="0" max="2" step="0.05">
+          <input type="number" id="temperature" min="0" max="2" step="0.05">
+        </div>
+        <div class="param">
+          <label><input type="checkbox" id="use_top_p"> top_p</label>
+          <input type="range" id="top_p_range" min="0" max="1" step="0.01">
+          <input type="number" id="top_p" min="0" max="1" step="0.01">
+        </div>
+        <div class="param">
+          <label><input type="checkbox" id="use_top_k"> top_k</label>
+          <input type="range" id="top_k_range" min="1" max="200" step="1">
+          <input type="number" id="top_k" min="1" max="1000" step="1">
+        </div>
+        <div class="param">
+          <label><input type="checkbox" checked disabled> max_tokens</label>
+          <span></span>
+          <input type="number" id="max_tokens" min="1" max="200000" step="1">
+        </div>
+        <label class="reasoning"><input type="checkbox" id="reasoning"> Reasoning on <span class="muted">(drops temperature / top_p / top_k)</span></label>
+      </div>
+      <p id="param-warnings" class="hint warn"></p>
+
+      <button type="submit" id="run-btn" class="primary">Run</button>
+      <p class="hint center">Ctrl + Enter to run</p>
+    </form>
+
+    <div class="results">
+      <div id="single-result" class="mode-single">
+        <div class="empty">Choose a model, write a message and press <b>Run</b>.</div>
+      </div>
+      <div id="compare-result" class="mode-compare hidden">
+        <div class="empty">The same request goes to every selected model. Results appear here as each one answers.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Admin view -->
+  <section id="view-admin" class="hidden">
+    <div id="admin-root"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="/static/diff.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

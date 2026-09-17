@@ -1,0 +1,14 @@
+# Web app
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
+
+# Provider SDKs (same set as Lesson 2). A missing one only disables its provider.
+boto3            # AWS Bedrock
+openai           # OpenAI, and NVIDIA (OpenAI-compatible API)
+google-genai     # Gemini
+anthropic        # Anthropic
+
+# Tests
+pytest
+httpx            # needed by fastapi.testclient
