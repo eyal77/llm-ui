@@ -506,7 +506,24 @@
       <div class="panel row-between admin-top">
         <div><h2>Admin — provider credentials</h2>
           <p class="hint">Saved to <code>${esc(cfg.env_file)}</code>. A provider is used only when its credentials are set.</p></div>
-        <button type="button" class="ghost" id="logout">Log out</button>
+        <div class="admin-actions">
+          <div class="popover-wrap">
+            <button type="button" class="ghost" id="pw-toggle" aria-expanded="false" aria-controls="pw-form">Change password</button>
+            <form class="popover hidden" id="pw-form">
+              <h3>Change admin password</h3>
+              <label class="field-label" for="new-pw">New password</label>
+              <input type="password" id="new-pw" minlength="6" required autocomplete="new-password">
+              <label class="field-label" for="new-pw2">Confirm password</label>
+              <input type="password" id="new-pw2" minlength="6" required autocomplete="new-password">
+              <p class="hint warn" id="pw-error"></p>
+              <div class="btn-row">
+                <button type="submit" class="primary">Update</button>
+                <button type="button" class="ghost" id="pw-cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+          <button type="button" class="ghost" id="logout">Log out</button>
+        </div>
       </div>
       <div class="admin-grid">
         ${cfg.providers.map((p) => `
@@ -523,12 +540,6 @@
             </div>
             <div class="test-result hint"></div>
           </form>`).join("")}
-        <form class="panel provider-card" id="pw-form">
-          <h3>Change admin password</h3>
-          <label class="field-label" for="new-pw">New password</label>
-          <input type="password" id="new-pw" minlength="6" required autocomplete="new-password">
-          <div class="btn-row"><button type="submit" class="primary">Update password</button></div>
-        </form>
       </div>`;
 
     $("#logout", root).addEventListener("click", async () => {
@@ -590,13 +601,32 @@
       b.disabled = false;
     }));
 
-    $("#pw-form", root).addEventListener("submit", async (e) => {
+    const pwForm = $("#pw-form", root);
+    const pwToggle = $("#pw-toggle", root);
+    const setPwOpen = (open) => {
+      pwForm.classList.toggle("hidden", !open);
+      pwToggle.setAttribute("aria-expanded", String(open));
+      if (open) $("#new-pw", root).focus();
+      else { pwForm.reset(); $("#pw-error", root).textContent = ""; }
+    };
+    pwToggle.addEventListener("click", () => setPwOpen(pwForm.classList.contains("hidden")));
+    $("#pw-cancel", root).addEventListener("click", () => setPwOpen(false));
+    pwForm.addEventListener("keydown", (e) => { if (e.key === "Escape") setPwOpen(false); });
+    // Close when clicking anywhere outside the popover (the listener removes itself once the page is re-rendered).
+    const outside = (e) => {
+      if (!document.body.contains(pwForm)) { document.removeEventListener("click", outside); return; }
+      if (!pwForm.classList.contains("hidden") && !e.target.closest(".popover-wrap")) setPwOpen(false);
+    };
+    document.addEventListener("click", outside);
+    pwForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const pw = $("#new-pw", root).value;
+      if (pw !== $("#new-pw2", root).value) { $("#pw-error", root).textContent = "Passwords don't match."; return; }
       try {
-        await api("/api/admin/password", { method: "POST", auth: true, body: { password: $("#new-pw").value } });
-        $("#new-pw").value = "";
+        await api("/api/admin/password", { method: "POST", auth: true, body: { password: pw } });
+        setPwOpen(false);
         toast("Password updated", "ok");
-      } catch (err) { toast(err.message, "error"); }
+      } catch (err) { $("#pw-error", root).textContent = err.message; }
     });
   }
 

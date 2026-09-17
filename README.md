@@ -8,6 +8,20 @@ A small web UI for sending the same prompt to different LLMs and comparing the a
 
 Supported providers: **AWS Bedrock, NVIDIA, Google Gemini, OpenAI and Anthropic**. The provider code is adapted from Lesson 2's `06a-provider-gateway.py` / `06b-compare-providers.py`, and it uses the same `.env` variable names.
 
+## Screenshots
+
+**Compare all**: the same prompt sent to four models, with latency, tokens and similarity to the baseline, and the answers side by side.
+
+![Compare all](docs/screenshots/compare.png)
+
+**Single model**: one model's answer with its token counts and latency.
+
+![Single model](docs/screenshots/single.png)
+
+**Admin**: provider credentials (keys are masked) and a Models list per provider.
+
+![Admin](docs/screenshots/admin.png)
+
 ## Quick start (Windows)
 
 ```powershell
@@ -92,6 +106,7 @@ app/
   providers.py   Provider gateway (Bedrock, NVIDIA, Gemini, OpenAI, Anthropic)
   config.py      Provider registry + .env read/write
   static/        index.html, app.js, diff.js, style.css (no build step)
+docs/            base44-prompt.md, screenshots/
 tests/           Offline tests: every SDK is faked
 ```
 
