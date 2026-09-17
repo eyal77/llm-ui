@@ -98,7 +98,10 @@ button.sm { padding: 4px 8px; }
 
 /* ---- run layout ---- */
 .run-layout { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; gap: 20px; align-items: start; }
-.request-panel { position: sticky; top: 74px; max-height: calc(100vh - 94px); overflow: auto; }
+.request-col { position: sticky; top: 74px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.request-panel { max-height: calc(100vh - 128px); overflow: auto; }
+.pane-title { font-size: 15px; font-weight: 650; margin: 0 0 0 2px; line-height: 24px; }
+.results > .pane-title { margin-bottom: -6px; }
 .request-panel > .field-label:first-child, .mode-single > .field-label:first-child { margin-top: 0; }
 .results { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .results > div { display: flex; flex-direction: column; gap: 16px; }
@@ -256,7 +259,8 @@ img.p-icon { background: #fff; padding: 1px; }
 /* ---- responsive ---- */
 @media (max-width: 960px) {
   .run-layout { grid-template-columns: 1fr; }
-  .request-panel { position: static; max-height: none; }
+  .request-col { position: static; }
+  .request-panel { max-height: none; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {

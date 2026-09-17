@@ -20,6 +20,8 @@
 <main>
   <!-- Run view: shared by "Single model" and "Compare all" so the request carries over -->
   <section id="view-run" class="run-layout">
+    <div class="request-col">
+    <h2 class="pane-title">Request</h2>
     <form id="request-form" class="panel request-panel" autocomplete="off">
       <div id="no-providers" class="notice hidden">
         No provider has credentials yet. Open <a href="#" data-goto="admin">Admin</a> to add them.
@@ -77,8 +79,10 @@
       <button type="submit" id="run-btn" class="primary">Run</button>
       <p class="hint center">Ctrl + Enter to run</p>
     </form>
+    </div>
 
     <div class="results">
+      <h2 class="pane-title">Response</h2>
       <div id="single-result" class="mode-single">
         <div class="empty">Choose a model, write a message and press <b>Run</b>.</div>
       </div>
