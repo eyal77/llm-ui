@@ -6,7 +6,7 @@ A small web UI for sending the same prompt to different LLMs and comparing the a
 - **Compare all**: send the same request to every selected model that's configured and has passed its Admin connection test, all at once. The comparison table fills in as each model answers. It shows status, latency, tokens, word count and **similarity to a baseline**. Below the table you can view the answers side by side, or as a **word-level diff** against any baseline you pick. You can export the results as CSV or JSON.
 - **Admin**: a password-protected page for API keys and models. It reads and writes the `.env` file. Keys are always shown masked. Each provider has a **Models** box (one model ID per line) that starts with default models, and you can replace them with your own.
 
-Supported providers: **AWS Bedrock, NVIDIA, Google Gemini, OpenAI, xAI Grok and Anthropic**. The provider code is adapted from Lesson 2's `06a-provider-gateway.py` / `06b-compare-providers.py`, and it uses the same `.env` variable names.
+Supported providers: **AWS Bedrock, NVIDIA, Google Gemini, OpenAI, xAI Grok and Anthropic**.
 
 ## Screenshots
 
@@ -40,15 +40,6 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-```
-
-### Reusing your Lesson 2 `.env`
-
-You can copy the lesson's `.env` into this folder, since the variable names are the same. Or you can point the app at the lesson's file directly:
-
-```powershell
-$env:LLM_UI_ENV_FILE = "C:\DevOps-Experts\Lesson-2\...\code\.env"
-.\run.ps1
 ```
 
 ## How it works
