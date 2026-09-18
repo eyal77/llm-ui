@@ -56,9 +56,11 @@ def index():
 @app.get("/api/models")
 def list_models():
     env = config.read_env()
+    tested_ok = config.read_tested()
     out = []
     for spec in config.PROVIDERS.values():
         configured = config.is_configured(spec, env)
+        tested = configured and spec.id in tested_ok
         models = config.provider_models(spec, env)
         out.append(
             {
@@ -66,9 +68,13 @@ def list_models():
                 "label": spec.label,
                 "logo": logo_url(spec.id),
                 "configured": configured,
+                "tested": tested,
                 "supports": spec.supports,
+                "temperature_max": spec.temperature_max,
                 "notes": spec.notes,
-                "models": [{"id": f"{spec.id}:{m}", "model": m} for m in models] if configured else [],
+                # A configured-but-untested provider is treated like an unconfigured one:
+                # its models stay hidden until "Test connection" in Admin succeeds.
+                "models": [{"id": f"{spec.id}:{m}", "model": m} for m in models] if tested else [],
             }
         )
     return {"providers": out, "defaults": providers.DEFAULTS}
@@ -255,6 +261,11 @@ def admin_update_config(body: ConfigUpdate, _: str = Depends(require_admin)):
         config.write_env(updates, [k for k in dict.fromkeys(clear) if k not in updates])
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    # Changed credentials or models need a fresh "Test connection" before they're used again.
+    for key in {*updates, *clear}:
+        provider = config.FIELD_PROVIDER.get(key)
+        if provider:
+            config.set_tested(provider, False)
     return admin_get_config(_)
 
 
@@ -272,5 +283,7 @@ def admin_test_provider(provider: str, _: str = Depends(require_admin)):
     try:
         result = providers.generate(provider, models[0], params, env)
     except Exception as exc:  # noqa: BLE001
+        config.set_tested(provider, False)
         return {"ok": False, "model": models[0], "error": f"{type(exc).__name__}: {str(exc)[:1000]}"}
+    config.set_tested(provider, True)
     return {"ok": True, "model": models[0], "text": result.text[:200], "latency_ms": result.latency_ms}

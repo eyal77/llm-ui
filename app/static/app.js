@@ -77,12 +77,14 @@
   }
 
   // ---------- models ----------
-  const configured = () => state.providers.filter((p) => p.configured);
-  const allModels = () => configured().flatMap((p) => p.models.map((m) => ({ ...m, provider: p.provider, label: p.label })));
+  // "tested" (credentials set AND the last Admin "Test connection" succeeded) is what
+  // makes a provider usable here — a configured-but-untested provider is skipped too.
+  const usable = () => state.providers.filter((p) => p.tested);
+  const allModels = () => usable().flatMap((p) => p.models.map((m) => ({ ...m, provider: p.provider, label: p.label })));
   const providerOf = (id) => state.providers.find((p) => p.provider === id);
 
   // Small provider icon: the logo file from app/static/logos/ if present, else a lettered badge.
-  const MONOGRAM = { bedrock: "B", nvidia: "N", gemini: "G", openai: "O", anthropic: "A" };
+  const MONOGRAM = { bedrock: "B", nvidia: "N", gemini: "G", openai: "O", grok: "X", anthropic: "A" };
   function providerIcon(provider, logo) {
     logo = logo ?? providerOf(provider)?.logo;
     if (logo) return `<img class="p-icon" src="${esc(logo)}" alt="" aria-hidden="true">`;
@@ -103,16 +105,22 @@
 
   function renderModelPickers() {
     const models = allModels();
-    $("#no-providers").classList.toggle("hidden", models.length > 0);
+    const noProviders = $("#no-providers");
+    noProviders.classList.toggle("hidden", models.length > 0);
+    if (!models.length) {
+      noProviders.innerHTML = state.providers.some((p) => p.configured)
+        ? `No provider has passed its connection test yet. Open <a href="#" data-goto="admin">Admin</a> and click "Test connection".`
+        : `No provider has credentials yet. Open <a href="#" data-goto="admin">Admin</a> to add them.`;
+    }
 
     const sel = $("#model");
     const previous = sel.value || store.get("model");
     sel.innerHTML = "";
     for (const p of state.providers) {
       const group = document.createElement("optgroup");
-      group.label = p.configured ? p.label : `${p.label} — no credentials`;
-      if (!p.configured) {
-        const o = new Option("Set credentials in Admin", "", false, false);
+      group.label = p.tested ? p.label : `${p.label} — ${p.configured ? "not tested yet" : "no credentials"}`;
+      if (!p.tested) {
+        const o = new Option(p.configured ? "Test the connection in Admin" : "Set credentials in Admin", "", false, false);
         o.disabled = true;
         group.appendChild(o);
       }
@@ -131,8 +139,10 @@
           <label class="check"><input type="checkbox" value="${esc(m.id)}" ${firstRender || checked.has(m.id) || !known.has(m.id) ? "checked" : ""}>
             ${pill(m.provider, m.label)}<span class="mono">${esc(m.model)}</span></label>`).join("")
       : `<p class="hint">No configured models.</p>`;
-    const skipped = state.providers.filter((p) => !p.configured).map((p) => p.label);
-    if (skipped.length) box.insertAdjacentHTML("beforeend", `<p class="hint">Skipped (no credentials): ${esc(skipped.join(", "))}</p>`);
+    const noCreds = state.providers.filter((p) => !p.configured).map((p) => p.label);
+    const untested = state.providers.filter((p) => p.configured && !p.tested).map((p) => p.label);
+    if (noCreds.length) box.insertAdjacentHTML("beforeend", `<p class="hint">Skipped (no credentials): ${esc(noCreds.join(", "))}</p>`);
+    if (untested.length) box.insertAdjacentHTML("beforeend", `<p class="hint">Skipped (not tested yet — use Admin → Test connection): ${esc(untested.join(", "))}</p>`);
     updateCompareCount();
     updateParamWarnings();
   }
@@ -185,6 +195,12 @@
         if (!p[`use_${knob}`]) continue;
         const unsupported = targets.map(providerOf).filter((s) => s && s.supports && !s.supports[knob]).map((s) => s.label);
         if (unsupported.length) msgs.push(`${knob} is not sent to ${unsupported.join(", ")}.`);
+      }
+      if (p.use_temperature) {
+        const capped = targets.map(providerOf).filter((s) => s && p.temperature > s.temperature_max);
+        if (capped.length) {
+          msgs.push(`temperature will be capped for ${capped.map((s) => `${s.label} (max ${s.temperature_max})`).join(", ")}.`);
+        }
       }
     }
     if (state.view === "single") {

@@ -30,6 +30,10 @@ GEMINI_MODEL_ID=gemini-flash-lite
 # keys ship blank
 OPENAI_API_KEY=
 OPENAI_MODEL_ID=gpt-x
+
+GROK_API_KEY=xai-abcdefghijkl
+GROK_MODEL_ID=grok-4
+
 ANTHROPIC_API_KEY=sk-ant-EXAMPLE
 ANTHROPIC_MODEL_ID=claude-haiku-4-5
 """
@@ -167,6 +171,15 @@ def test_bedrock_nova_mapping(env_file, fakes):
     assert r.sent["top_k"] == 20 and not r.skipped
 
 
+def test_bedrock_temperature_capped(env_file, fakes):
+    r = providers.generate("bedrock", "us.amazon.nova-2-lite-v1:0",
+                            providers.GenerateParams(user="hi", temperature=2.0, use_temperature=True))
+    kw = last(fakes, "bedrock")
+    assert kw["inferenceConfig"]["temperature"] == 1.0
+    assert r.sent["temperature"] == 1.0
+    assert any(s.startswith("temperature: capped to 1.0 (was 2.0") for s in r.skipped)
+
+
 def test_reasoning_drops_sampling(env_file, fakes):
     r = providers.generate("bedrock", "us.amazon.nova-2-lite-v1:0", all_knobs(reasoning=True))
     kw = last(fakes, "bedrock")
@@ -197,6 +210,26 @@ def test_openai_skips_top_k_and_retries_without_reasoning_effort(env_file, fakes
     assert r.text == "the quick brown fox"
 
 
+def test_grok_mapping(env_file, fakes):
+    r = providers.generate("grok", "grok-4", all_knobs())
+    kw = last(fakes, "openai")
+    assert kw["max_tokens"] == 123 and kw["temperature"] == 0.5 and kw["top_p"] == 0.8
+    assert "top_k" not in kw and "extra_body" not in kw and "reasoning_effort" not in kw
+    assert kw["messages"][0] == {"role": "system", "content": "sys"}
+    assert last(fakes, "openai.client")["base_url"] == "https://api.x.ai/v1"
+    assert any(s.startswith("top_k: not supported") for s in r.skipped)
+    assert r.text == "the quick brown fox"
+
+
+def test_grok_reasoning_effort_retry(env_file, fakes):
+    fakes.reject_reasoning = True
+    r = providers.generate("grok", "grok-4", all_knobs(reasoning=True))
+    kw = last(fakes, "openai")
+    assert "reasoning_effort" not in kw
+    assert any(s.startswith("reasoning:") for s in r.skipped)
+    assert r.text == "the quick brown fox"
+
+
 def test_gemini_mapping_and_truncation(env_file, fakes):
     r = providers.generate("gemini", "gemini-flash-lite", all_knobs())
     cfg = last(fakes, "gemini")["config"]
@@ -213,6 +246,15 @@ def test_anthropic_mapping(env_file, fakes):
     assert kw["extra_body"] == {"temperature": 0.5, "top_p": 0.8, "top_k": 20}
     assert "temperature" not in kw
     assert r.text == "Claude answer"
+
+
+def test_anthropic_temperature_capped(env_file, fakes):
+    r = providers.generate("anthropic", "claude-haiku-4-5",
+                            providers.GenerateParams(user="hi", temperature=2.0, use_temperature=True))
+    kw = last(fakes, "anthropic")
+    assert kw["extra_body"]["temperature"] == 1.0
+    assert r.sent["temperature"] == 1.0
+    assert any(s.startswith("temperature: capped to 1.0 (was 2.0") for s in r.skipped)
 
 
 def test_anthropic_workspace_header(env_file, fakes):
@@ -266,6 +308,18 @@ def test_default_models_when_unset(env_file):
     assert config.split_models("a\n b, a\n\nc") == ["a", "b", "c"]
 
 
+def test_tested_state_persists_on_disk(env_file):
+    """The tested set survives a fresh read — i.e. a process restart, not just the running one."""
+    assert config.read_tested() == set()
+    config.set_tested("openai", True)
+    config.set_tested("anthropic", True)
+    assert config.read_tested() == {"openai", "anthropic"}
+    config.set_tested("openai", False)
+    assert config.read_tested() == {"anthropic"}
+    tested_file = env_file.with_name(env_file.name + ".tested.json")
+    assert tested_file.exists() and "anthropic" in tested_file.read_text()
+
+
 def test_write_env_keeps_comments(env_file):
     config.write_env({"OPENAI_API_KEY": "sk-new", "GEMINI_MODEL_ID": "g1,g2"}, clear=["NVIDIA_FALLBACK_MODEL_ID"])
     text = env_file.read_text()
@@ -288,9 +342,16 @@ def test_index_and_models(client):
     assert "LLM Compare" in client.get("/").text
     data = client.get("/api/models").json()
     by = {p["provider"]: p for p in data["providers"]}
-    assert [m["id"] for m in by["nvidia"]["models"]][0] == "nvidia:nvidia/model-a"
+    # Configured but never tested: treated like unconfigured, no models offered yet.
+    assert by["nvidia"]["configured"] is True and by["nvidia"]["tested"] is False
+    assert by["nvidia"]["models"] == []
     assert by["openai"]["configured"] is False and by["openai"]["models"] == []
     assert data["defaults"]["max_tokens"] == 2000
+    assert by["bedrock"]["temperature_max"] == 1.0 and by["openai"]["temperature_max"] == 2.0
+
+    config.set_tested("nvidia", True)
+    by = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert [m["id"] for m in by["nvidia"]["models"]][0] == "nvidia:nvidia/model-a"
 
 
 def test_logo_urls(client, tmp_path, monkeypatch):
@@ -373,12 +434,32 @@ def test_admin_flow(client, env_file):
     by = {p["provider"]: p for p in res["providers"]}
     assert by["openai"]["configured"] and by["openai"]["models"] == ["gpt-a", "gpt-b"]
     assert not by["anthropic"]["configured"]
-    models = client.get("/api/models").json()
-    assert any(m["id"] == "openai:gpt-b" for p in models["providers"] for m in p["models"])
+
+    # Configured but not tested yet: hidden from the Run page's model list, like an
+    # unconfigured provider.
+    by_models = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by_models["openai"]["tested"] is False and by_models["openai"]["models"] == []
 
     t = client.post("/api/admin/test/openai", headers=auth).json()
     assert t["ok"] and t["model"] == "gpt-a"
     assert client.post("/api/admin/test/anthropic", headers=auth).json()["ok"] is False
+
+    # A successful test makes it usable...
+    by_models = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by_models["openai"]["tested"] is True
+    assert any(m["id"] == "openai:gpt-b" for m in by_models["openai"]["models"])
+
+    # ...and it stays usable after logging out and back in (persisted, not just in memory).
+    client.post("/api/admin/logout", headers=auth)
+    token = client.post("/api/admin/login", json={"password": "s3cret!"}).json()["token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    by_models = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by_models["openai"]["tested"] is True
+
+    # ...and saving new credentials/model IDs un-tests it again.
+    client.put("/api/admin/config", headers=auth, json={"values": {"OPENAI_MODEL_ID": "gpt-a"}})
+    by_models = {p["provider"]: p for p in client.get("/api/models").json()["providers"]}
+    assert by_models["openai"]["tested"] is False
 
     assert client.post("/api/admin/password", headers=auth, json={"password": "newpass1"}).status_code == 200
     assert client.post("/api/admin/logout", headers=auth).status_code == 200
