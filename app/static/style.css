@@ -139,6 +139,7 @@ img.p-icon { background: #fff; padding: 1px; }
 .p-mono.nvidia { background: #65a30d; }
 .p-mono.gemini { background: #2563eb; }
 .p-mono.openai { background: #0f766e; }
+.p-mono.grok { background: #1e293b; }
 .p-mono.anthropic { background: #c2410c; }
 .provider-card h3 .pill { font-size: 12.5px; padding: 3px 10px 3px 4px; gap: 6px; }
 .provider-card h3 .p-icon { width: 18px; height: 18px; border-radius: 4px; }
@@ -147,12 +148,14 @@ img.p-icon { background: #fff; padding: 1px; }
 .pill.nvidia { background: #eaf7d9; color: #4d7c0f; }
 .pill.gemini { background: #e3eeff; color: #1d4ed8; }
 .pill.openai { background: #e6f5f1; color: #0f766e; }
+.pill.grok { background: #e2e8f0; color: #1e293b; }
 .pill.anthropic { background: #f8ebe4; color: #9a3412; }
 @media (prefers-color-scheme: dark) {
   .pill.bedrock { background: #3a2a14; color: #fdba74; }
   .pill.nvidia { background: #22321a; color: #a3e635; }
   .pill.gemini { background: #1a2745; color: #93c5fd; }
   .pill.openai { background: #12302b; color: #5eead4; }
+  .pill.grok { background: #263041; color: #cbd5e1; }
   .pill.anthropic { background: #3a2219; color: #fdba74; }
 }
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;

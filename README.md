@@ -3,10 +3,10 @@
 A small web UI for sending the same prompt to different LLMs and comparing the answers, token usage and latency.
 
 - **Single model**: pick one model, set the system message, user message, `temperature`, `max_tokens`, `top_p` and `top_k`, then run it. You get the response, the input, output and total token counts, and the latency.
-- **Compare all**: send the same request to every selected model that has credentials, all at once. The comparison table fills in as each model answers. It shows status, latency, tokens, word count and **similarity to a baseline**. Below the table you can view the answers side by side, or as a **word-level diff** against any baseline you pick. You can export the results as CSV or JSON.
+- **Compare all**: send the same request to every selected model that's configured and has passed its Admin connection test, all at once. The comparison table fills in as each model answers. It shows status, latency, tokens, word count and **similarity to a baseline**. Below the table you can view the answers side by side, or as a **word-level diff** against any baseline you pick. You can export the results as CSV or JSON.
 - **Admin**: a password-protected page for API keys and models. It reads and writes the `.env` file. Keys are always shown masked. Each provider has a **Models** box (one model ID per line) that starts with default models, and you can replace them with your own.
 
-Supported providers: **AWS Bedrock, NVIDIA, Google Gemini, OpenAI and Anthropic**. The provider code is adapted from Lesson 2's `06a-provider-gateway.py` / `06b-compare-providers.py`, and it uses the same `.env` variable names.
+Supported providers: **AWS Bedrock, NVIDIA, Google Gemini, OpenAI, xAI Grok and Anthropic**. The provider code is adapted from Lesson 2's `06a-provider-gateway.py` / `06b-compare-providers.py`, and it uses the same `.env` variable names.
 
 ## Screenshots
 
@@ -55,7 +55,8 @@ $env:LLM_UI_ENV_FILE = "C:\DevOps-Experts\Lesson-2\...\code\.env"
 
 | Setting | Notes |
 |---|---|
-| A provider is **used** only when its credentials are set | Providers without credentials are listed as "skipped" |
+| A provider is **used** only when its credentials are set **and** its "Test connection" in Admin has succeeded | A configured-but-untested provider is listed as "skipped", the same as one with no credentials |
+| A successful test is **kept in memory**, not saved to `.env` | It's cleared on a server restart, and whenever that provider's credentials or Models box are saved again — either way, it needs testing again before it's offered |
 | **Models**: one ID per line in Admin, stored comma-separated in `*_MODEL_ID` | Each model becomes a separate entry. If the variable is unset, the defaults below are used |
 | `NVIDIA_FALLBACK_MODEL_ID` from the lesson `.env` is still read | It appears in the NVIDIA Models box. Saving that box merges it into `NVIDIA_MODEL_ID` |
 | `.env` is re-read on every request | Changes made in Admin or by hand apply without a restart |
@@ -68,6 +69,7 @@ $env:LLM_UI_ENV_FILE = "C:\DevOps-Experts\Lesson-2\...\code\.env"
 | NVIDIA | `nvidia/nemotron-3-super-120b-a12b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
 | Google Gemini | `gemini-3.5-flash-lite` |
 | OpenAI | `gpt-5.6-luna` |
+| xAI Grok | `grok-4` |
 | Anthropic | `claude-haiku-4-5` |
 
 "Restore defaults" in Admin puts these back. The defaults are defined in `app/config.py`.
@@ -78,9 +80,9 @@ Each sampling knob has a default and an on/off switch, because several current m
 
 | Parameter | Default | Sent by default | Notes |
 |---|---|---|---|
-| `temperature` | 0.3 | yes | |
+| `temperature` | 0.3 | yes | The slider goes to 2 (OpenAI, Gemini, NVIDIA, xAI); Bedrock and Anthropic only accept 0–1, so a higher value is capped and noted in "skipped" instead of erroring |
 | `top_p` | 0.9 | no | Some Claude models reject `temperature` and `top_p` together |
-| `top_k` | 40 | no | Not available in the OpenAI API. On Bedrock it's only sent for Nova and Anthropic models |
+| `top_k` | 40 | no | Not available in the OpenAI or xAI APIs. On Bedrock it's only sent for Nova and Anthropic models |
 | `max_tokens` | 2000 | always | Reasoning tokens come out of this budget |
 | Reasoning | off | | When on, temperature, top_p and top_k are dropped, as in 06a |
 
@@ -96,7 +98,7 @@ Token counts are normalized. For Gemini, thinking tokens are added to the output
 
 ### Provider icons
 
-Each provider pill shows a small icon in Compare all, Single model and Admin. To use official logos, put the files in `app/static/logos/`, named `bedrock`, `nvidia`, `gemini`, `openai` and `anthropic` (`.svg`, `.png`, `.webp`, `.jpg` or `.ico`), then reload the page. Without a file, a small lettered badge is shown instead.
+Each provider pill shows a small icon in Compare all, Single model and Admin. To use official logos, put the files in `app/static/logos/`, named `bedrock`, `nvidia`, `gemini`, `openai`, `grok` and `anthropic` (`.svg`, `.png`, `.webp`, `.jpg` or `.ico`), then reload the page. Without a file, a small lettered badge is shown instead.
 
 ### Anthropic keys and workspaces
 
@@ -107,7 +109,7 @@ Some Anthropic API keys aren't scoped to a single workspace, for example organiz
 ```
 app/
   main.py        FastAPI routes: /api/models, /api/generate, /api/admin/*
-  providers.py   Provider gateway (Bedrock, NVIDIA, Gemini, OpenAI, Anthropic)
+  providers.py   Provider gateway (Bedrock, NVIDIA, Gemini, OpenAI, xAI Grok, Anthropic)
   config.py      Provider registry + .env read/write
   static/        index.html, app.js, diff.js, style.css (no build step)
   static/logos/  optional provider logo files (see its README)

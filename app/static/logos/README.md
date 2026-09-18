@@ -8,6 +8,7 @@ Drop official logo files here, named after the provider ID:
 | NVIDIA | `nvidia.svg` |
 | Google Gemini | `gemini.svg` |
 | OpenAI | `openai.svg` |
+| xAI Grok | `grok.svg` |
 | Anthropic | `anthropic.svg` |
 
 - **Formats:** `.svg`, `.png`, `.webp`, `.jpg` or `.ico`. SVG or a square PNG of at least 64×64 looks best.

@@ -95,7 +95,15 @@ class _Plan:
             elif not self.spec.supports.get(knob, False):
                 self.skip(knob, f"not supported by {self.spec.label}")
             else:
-                out[knob] = getattr(p, knob)
+                value = getattr(p, knob)
+                if knob == "temperature" and value > self.spec.temperature_max:
+                    # Sent, not dropped — just capped to what the API accepts, instead of erroring.
+                    self.result.skipped.append(
+                        f"temperature: capped to {self.spec.temperature_max} (was {value} — "
+                        f"{self.spec.label}'s max)"
+                    )
+                    value = self.spec.temperature_max
+                out[knob] = value
         return out
 
     def send(self, knob: str, value) -> None:
@@ -163,17 +171,19 @@ def call_bedrock(model: str, params: GenerateParams, env: dict, plan: _Plan) -> 
     r.truncated = r.stop_reason == "max_tokens"
 
 
-# --- OpenAI Chat Completions (OpenAI and NVIDIA) --------------------------------
+# --- OpenAI Chat Completions (OpenAI, NVIDIA and xAI Grok) ----------------------
 
 
 def call_openai_compatible(model: str, params: GenerateParams, env: dict, plan: _Plan) -> None:
     import openai
 
     r = plan.result
-    nvidia = plan.spec.id == "nvidia"
-    if nvidia:
+    provider = plan.spec.id
+    if provider == "nvidia":
         # The free tier queues requests; 60s per attempt instead of the 10-minute default.
         client = openai.OpenAI(api_key=env["NVIDIA_API_KEY"], base_url=config.get(env, "NVIDIA_BASE_URL"), timeout=60)
+    elif provider == "grok":
+        client = openai.OpenAI(api_key=env["GROK_API_KEY"], base_url=config.get(env, "GROK_BASE_URL"))
     else:
         client = openai.OpenAI(api_key=env["OPENAI_API_KEY"], base_url=env.get("OPENAI_BASE_URL") or None)
 
@@ -182,10 +192,16 @@ def call_openai_compatible(model: str, params: GenerateParams, env: dict, plan: 
         "messages": ([{"role": "system", "content": params.system}] if params.system else []) + params.messages,
     }
     extra_body: dict = {}
-    if nvidia:
+    if provider == "nvidia":
         kwargs["max_tokens"] = params.max_tokens
         # Nemotron thinks by default; NVIDIA's switch is a chat-template flag.
         extra_body["chat_template_kwargs"] = {"enable_thinking": params.reasoning}
+    elif provider == "grok":
+        kwargs["max_tokens"] = params.max_tokens
+        # Only grok-3-mini-style models accept reasoning_effort; non-reasoning models
+        # error on it, so it's sent only when asked for (and dropped on retry below).
+        if params.reasoning:
+            kwargs["reasoning_effort"] = "high"
     else:
         # Reasoning models take max_completion_tokens (it covers hidden reasoning too).
         kwargs["max_completion_tokens"] = params.max_tokens
@@ -322,6 +338,7 @@ CALLERS = {
     "bedrock": call_bedrock,
     "nvidia": call_openai_compatible,
     "openai": call_openai_compatible,
+    "grok": call_openai_compatible,
     "gemini": call_gemini,
     "anthropic": call_anthropic,
 }

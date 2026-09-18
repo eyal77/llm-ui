@@ -8,6 +8,7 @@ page or by hand) take effect without a restart.
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 from dataclasses import dataclass, field
@@ -53,6 +54,9 @@ class ProviderSpec:
     legacy_model_keys: tuple[str, ...] = ()
     # Which sampling knobs this provider's API accepts (shown in the UI).
     supports: dict[str, bool] = field(default_factory=dict)
+    # The UI's temperature slider goes to 2 (OpenAI, Gemini, NVIDIA, xAI); providers with
+    # a narrower API range (Bedrock, Anthropic: 0-1) cap it instead of erroring.
+    temperature_max: float = 2.0
     notes: str = ""
 
     @property
@@ -80,7 +84,9 @@ PROVIDERS: dict[str, ProviderSpec] = {
             models=_models_field("BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0"),
             settings=(Field("AWS_REGION", "Region", required=False, default="us-east-1"),),
             supports={"temperature": True, "top_p": True, "top_k": True},
-            notes="top_k is model-specific on Bedrock: sent for Amazon Nova and Anthropic models only.",
+            temperature_max=1.0,
+            notes="top_k is model-specific on Bedrock: sent for Amazon Nova and Anthropic models only. "
+                  "temperature is capped at 1 (Bedrock's Converse API rejects higher values).",
         ),
         ProviderSpec(
             id="nvidia",
@@ -115,6 +121,18 @@ PROVIDERS: dict[str, ProviderSpec] = {
             notes="The OpenAI API has no top_k.",
         ),
         ProviderSpec(
+            id="grok",
+            label="xAI Grok",
+            credentials=(Field("GROK_API_KEY", "API key", secret=True, help="From console.x.ai"),),
+            models=_models_field("GROK_MODEL_ID", "grok-4"),
+            settings=(Field("GROK_BASE_URL", "Base URL", required=False,
+                            default="https://api.x.ai/v1"),),
+            supports={"temperature": True, "top_p": True, "top_k": False},
+            notes="The xAI API has no top_k. reasoning_effort is only accepted by "
+                  "reasoning-capable models (e.g. grok-3-mini); it's sent only when Reasoning is on, "
+                  "and dropped with a retry if the model rejects it.",
+        ),
+        ProviderSpec(
             id="anthropic",
             label="Anthropic",
             credentials=(Field("ANTHROPIC_API_KEY", "API key", secret=True),),
@@ -129,14 +147,17 @@ PROVIDERS: dict[str, ProviderSpec] = {
                                  "Enter the ID of the workspace to use — it starts with wrkspc_ — "
                                  "from Claude Console → Settings → Workspaces, ID column."),),
             supports={"temperature": True, "top_p": True, "top_k": True},
+            temperature_max=1.0,
             notes="Current Claude models reject a non-default temperature, and "
-                  "temperature + top_p together; enable only what your model accepts.",
+                  "temperature + top_p together; enable only what your model accepts. "
+                  "temperature is capped at 1 (Anthropic's API rejects higher values).",
         ),
     )
 }
 
 ALL_FIELDS: dict[str, Field] = {f.key: f for spec in PROVIDERS.values() for f in spec.fields}
 MODEL_KEYS = {spec.models.key for spec in PROVIDERS.values()}
+FIELD_PROVIDER: dict[str, str] = {f.key: spec.id for spec in PROVIDERS.values() for f in spec.fields}
 
 
 def read_env() -> dict[str, str]:
@@ -199,3 +220,32 @@ def mask(value: str) -> str:
     if len(value) <= 8:
         return "••••"
     return f"{value[:4]}••••{value[-4:]}"
+
+
+def _tested_file() -> Path:
+    # Kept next to whichever .env is in use (including a custom LLM_UI_ENV_FILE),
+    # not inside it: this isn't a credential, and re-testing it by hand shouldn't
+    # be needed for it to disappear.
+    return ENV_FILE.with_name(ENV_FILE.name + ".tested.json")
+
+
+def read_tested() -> set[str]:
+    """Provider IDs whose last Admin "Test connection" succeeded — persists across restarts."""
+    path = _tested_file()
+    if not path.exists():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return set()
+    return {k for k in data if k in PROVIDERS} if isinstance(data, list) else set()
+
+
+def set_tested(provider: str, ok: bool) -> None:
+    """Record whether `provider`'s last connection test succeeded (False forgets it)."""
+    with _lock:
+        tested = read_tested()
+        tested.add(provider) if ok else tested.discard(provider)
+        path = _tested_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(sorted(tested)), encoding="utf-8")
