@@ -47,9 +47,9 @@ uvicorn app.main:app --reload
 | Setting | Notes |
 |---|---|
 | A provider is **used** only when its credentials are set **and** its "Test connection" in Admin has succeeded | A configured-but-untested provider is listed as "skipped", the same as one with no credentials |
-| A successful test is **kept in memory**, not saved to `.env` | It's cleared on a server restart, and whenever that provider's credentials or Models box are saved again — either way, it needs testing again before it's offered |
+| A successful test is recorded in `<env file>.tested.json`, next to `.env` (not inside it) | It survives a server restart, but is cleared whenever that provider's credentials or Models box are saved again — it then needs testing again before it's offered |
 | **Models**: one ID per line in Admin, stored comma-separated in `*_MODEL_ID` | Each model becomes a separate entry. If the variable is unset, the defaults below are used |
-| `NVIDIA_FALLBACK_MODEL_ID` from the lesson `.env` is still read | It appears in the NVIDIA Models box. Saving that box merges it into `NVIDIA_MODEL_ID` |
+| `NVIDIA_FALLBACK_MODEL_ID`, a legacy variable, is still read | It appears in the NVIDIA Models box. Saving that box merges it into `NVIDIA_MODEL_ID` |
 | `.env` is re-read on every request | Changes made in Admin or by hand apply without a restart |
 
 ### Default models
@@ -118,5 +118,5 @@ pytest -q
 ## Security notes
 
 - The app binds to `127.0.0.1` only. Don't expose it on a network as it is.
-- `ADMIN_PASSWORD` and all keys are stored in plain text in `.env`, just like the lesson setup. `.env` is git-ignored.
+- `ADMIN_PASSWORD` and all keys are stored in plain text in `.env`. `.env` is git-ignored.
 - Admin sessions live in memory, so restarting the server logs you out.
